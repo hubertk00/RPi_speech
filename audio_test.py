@@ -1,3 +1,5 @@
+import os
+os.environ['TF_ENABLE_ONEDNN_OPTS'] = '0'
 import sounddevice as sd
 import numpy as np
 import tensorflow as tf
@@ -9,13 +11,13 @@ import librosa
 import argparse
 from src.funkcje import mfcc, extract_mfcc
 
-TF_ENABLE_ONEDNN_OPTS = 0
-
 COMMANDS = ['Ciemniej', 'Jasniej', 'Muzyka', 'Rolety', 'Swiatlo', 'Telewizor', 'Wrocilem', 'Wychodze', 'Tlo']
 
 q = queue.Queue()
 running = True
 
+def get_rms(audio_chunk):
+    return np.sqrt(np.mean(audio_chunk**2))+1e-7
 
 def audio_callback(indata, frames, time_info, status):
     if status:
@@ -37,6 +39,11 @@ def process_audio(wake_model, command_model, args):
             audio_buffer[-len(data):] = data
 
             current_time = time.time()
+
+            #rms_value = get_rms(audio_buffer)
+
+            #if not listening_for_command and rms_value < args.vad_threshold:
+                #continue
 
             if listening_for_command:
                 if current_time - command_mode_start_time > args.listen_duration:
@@ -110,20 +117,22 @@ def main(args):
             processing_thread.join()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="System rozpoznawania mowy")
+    parser = argparse.ArgumentParser()
     
     parser.add_argument('-wm', '--wake-model', type=str, required=True, help="Ścieżka do zapisanego modelu słowa wybudzającego (.keras)")
     parser.add_argument('-cm', '--command-model', type=str, required=True, help="Ścieżka do zapisanego modelu komend (.keras)")
     
-    parser.add_argument('-wt', '--wake-threshold', type=float, default=0.8, help="Próg pewności dla detekcji słowa wybudzającego.")
-    parser.add_argument('-ct', '--command-threshold', type=float, default=0.9, help="Próg pewności dla detekcji komendy.")
+    parser.add_argument('-wt', '--wake-threshold', type=float, default=0.8, help="Próg dla detekcji słowa wybudzającego.")
+    parser.add_argument('-ct', '--command-threshold', type=float, default=0.9, help="Próg dla detekcji komendy.")
     parser.add_argument('--cooldown', type=float, default=1.0, help="Czas oczekiwania po detekcji.")
     parser.add_argument('--listen-duration', type=float, default=4.0, help="Czas nasłuchiwania komendy po wybudzeniu.")
     
     parser.add_argument('--rate', type=int, default=16000, help="Częstotliwość próbkowania audio.")
     parser.add_argument('--chunk', type=int, default=2048, help="Rozmiar ramki audio.")
-    parser.add_argument('--window-size', type=int, default=16000, help="Rozmiar okna analizy (powinien odpowiadać 1 sekundzie audio).")
+    parser.add_argument('--window-size', type=int, default=16000, help="Rozmiar okna.")
     parser.add_argument('--n-mfcc', type=int, default=20, help="Liczba współczynników MFCC do ekstrakcji.")
+
+    parser.add_argument('--vad-threshold', type=float, default=0.005)
 
     args = parser.parse_args()
     
