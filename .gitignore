@@ -21,6 +21,7 @@ __pycache__/
 .vscode/
 *.swp
 *.swo
+*.csv
 
 background/
 

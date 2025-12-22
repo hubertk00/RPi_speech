@@ -6,6 +6,8 @@ import queue
 import time
 import numpy as np
 import sounddevice as sd
+import psutil
+import csv
 from src.funkcje import extract_mfcc
 
 try:
@@ -20,6 +22,45 @@ COMMANDS = ['Ciemniej', 'Jasniej', 'Muzyka', 'Rolety', 'Swiatlo', 'Telewizor', '
 
 q = queue.Queue()
 running = True
+
+class ResourceMonitor:
+    def __init__(self, output_file='system_usage_TF.csv', interval=0.5):
+        self.output_file = output_file
+        self.interval = interval
+        self.running = False
+        self.process = psutil.Process(os.getpid())
+        self.thread = threading.Thread(target=self._monitor_loop)
+
+    def start(self):
+        self.running = True
+        with open(self.output_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(['Time_s', 'CPU_Percent', 'RAM_MB'])
+        self.thread.start()
+    
+    def stop(self):
+        self.running = False
+        if self.thread.is_alive():
+            self.thread.join()
+    
+    def _monitor_loop(self):
+        start_time = time.time()
+        while self.running:
+            try:
+                cpu = self.process.cpu_percent(interval=None)
+                mem_info = self.process.memory_info()
+                ram_mb = mem_info.rss / (1024 * 1024) 
+                
+                elapsed = time.time() - start_time
+                
+                with open(self.output_file, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([f"{elapsed:.2f}", cpu, f"{ram_mb:.2f}"])
+                
+                time.sleep(self.interval)
+            except Exception as e:
+                print(f"Błąd monitora: {e}")
+                break
 
 class TFLiteModel:
     def __init__(self, model_path):
@@ -131,7 +172,8 @@ def process_audio(wake_model, command_model, args):
 
 def main(args):
     global running
-
+    monitor = ResourceMonitor(output_file='system_usage.csv', interval=0.5)
+    monitor.start()
     try:
         wake_model = TFLiteModel(args.wake_model)
         command_model = TFLiteModel(args.command_model)
@@ -154,6 +196,7 @@ def main(args):
         print(f"\n[BŁĄD]: {e}")
     finally:
         running = False
+        monitor.stop()
         if 'processing_thread' in locals() and processing_thread.is_alive():
             processing_thread.join()
 

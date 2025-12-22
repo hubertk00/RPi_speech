@@ -13,7 +13,7 @@ resnet14_commands = keras.api.models.load_model(r'C:\Users\Hubert\Desktop\Praca_
 crnn_commands = keras.api.models.load_model(r'C:\Users\Hubert\Desktop\Praca_dyplomowa_TensorFlow\trained_models_commands\crnn_commands.keras')
 matchboxnet_commands = keras.api.models.load_model(r'C:\Users\Hubert\Desktop\Praca_dyplomowa_TensorFlow\trained_models_commands\matchboxnet_commands.keras')
 
-converter = tf.lite.TFLiteConverter.from_keras_model(matchboxnet_commands)
+converter = tf.lite.TFLiteConverter.from_keras_model(crnn_commands)
 tflite_model = converter.convert()
-with open('matchboxnet_commands.tflite', 'wb') as f:
+with open('crnn_commands.tflite', 'wb') as f:
     f.write(tflite_model)
